@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
-import { Html5Qrcode } from 'html5-qrcode';
+import { Html5Qrcode, Html5QrcodeSupportedFormats } from 'html5-qrcode';
+import Quagga from '@ericblade/quagga2';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Barcode, Camera, Search, Loader2, CheckCircle, XCircle } from 'lucide-react';
+import { Barcode, Camera, Search, Loader2, CheckCircle, XCircle, Upload } from 'lucide-react';
 import { productService, type Product } from '@/services/product';
 import { toast } from 'sonner';
 
@@ -22,7 +23,18 @@ export default function ProductLookup() {
     const [product, setProduct] = useState<Product | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [isScanning, setIsScanning] = useState(false);
+    const [isUploadScanning, setIsUploadScanning] = useState(false);
     const scannerRef = useRef<Html5Qrcode | null>(null);
+
+    // Configure barcode formats for camera
+    const formatsToSupport = [
+        Html5QrcodeSupportedFormats.EAN_13,
+        Html5QrcodeSupportedFormats.EAN_8,
+        Html5QrcodeSupportedFormats.UPC_A,
+        Html5QrcodeSupportedFormats.UPC_E,
+        Html5QrcodeSupportedFormats.CODE_128,
+        Html5QrcodeSupportedFormats.CODE_39,
+    ];
 
     // Cleanup scanner on unmount
     useEffect(() => {
@@ -34,27 +46,36 @@ export default function ProductLookup() {
     }, []);
 
     const startScanner = async () => {
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            toast.error('Camera not supported on this device');
+            return;
+        }
+
         try {
-            const scanner = new Html5Qrcode('barcode-reader');
-            scannerRef.current = scanner;
             setIsScanning(true);
+            await new Promise(resolve => setTimeout(resolve, 100));
+
+            const scanner = new Html5Qrcode('barcode-reader', { formatsToSupport, verbose: false });
+            scannerRef.current = scanner;
 
             await scanner.start(
                 { facingMode: 'environment' },
                 { fps: 10, qrbox: { width: 250, height: 150 } },
                 (decodedText) => {
-                    // Barcode detected
                     setBarcode(decodedText);
                     stopScanner();
                     toast.success(`Barcode detected: ${decodedText}`);
                 },
-                () => {
-                    // Ignore scan errors (no barcode found yet)
-                }
+                () => { }
             );
         } catch (err) {
             console.error('Scanner error:', err);
-            toast.error('Could not start camera. Please enter barcode manually.');
+            const errMessage = err instanceof Error ? err.message : 'Unknown error';
+            if (errMessage.includes('Permission denied')) {
+                toast.error('Camera permission denied. Please allow camera access.');
+            } else {
+                toast.error('Could not start camera: ' + errMessage);
+            }
             setIsScanning(false);
         }
     };
@@ -63,9 +84,8 @@ export default function ProductLookup() {
         if (scannerRef.current) {
             try {
                 await scannerRef.current.stop();
-            } catch {
-                // Ignore stop errors
-            }
+            } catch { }
+            scannerRef.current = null;
         }
         setIsScanning(false);
     };
@@ -88,7 +108,18 @@ export default function ProductLookup() {
             toast.success('Product found!');
         } catch (err: unknown) {
             console.error('Lookup error:', err);
-            const errorMessage = err instanceof Error ? err.message : 'Product not found';
+            // User-friendly error messages
+            let errorMessage = 'Product not found in database';
+            if (err && typeof err === 'object' && 'response' in err) {
+                const axiosErr = err as { response?: { status?: number } };
+                if (axiosErr.response?.status === 404) {
+                    errorMessage = `Product with barcode "${barcode}" not found in OpenFoodFacts database`;
+                } else if (axiosErr.response?.status === 401) {
+                    errorMessage = 'Please login to lookup products';
+                } else if (axiosErr.response?.status === 500) {
+                    errorMessage = 'Server error. Please try again later';
+                }
+            }
             setError(errorMessage);
             toast.error(errorMessage);
         } finally {
@@ -96,41 +127,79 @@ export default function ProductLookup() {
         }
     };
 
-    const handleFileUpload = async (file: File) => {
+    // Use Quagga for file-based barcode detection
+    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        setIsUploadScanning(true);
+
         try {
-            console.log('Uploading file for barcode scan:', file.name);
+            console.log('Scanning file with Quagga:', file.name);
 
-            // html5-qrcode requires a visible element, but we can position it off-screen
-            const tempDiv = document.createElement('div');
-            tempDiv.id = 'temp-scanner-' + Date.now();
-            tempDiv.style.position = 'absolute';
-            tempDiv.style.left = '-9999px';
-            tempDiv.style.top = '-9999px';
-            tempDiv.style.width = '300px';
-            tempDiv.style.height = '300px';
-            document.body.appendChild(tempDiv);
+            // Convert file to data URL
+            const dataUrl = await new Promise<string>((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result as string);
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
 
-            const scanner = new Html5Qrcode(tempDiv.id);
+            // Try multiple configurations
+            const configs = [
+                { size: 800, patchSize: 'medium' as const, halfSample: true, locate: true },
+                { size: 1280, patchSize: 'large' as const, halfSample: false, locate: true },
+                { size: 640, patchSize: 'small' as const, halfSample: true, locate: false },
+                { size: 800, patchSize: 'x-large' as const, halfSample: false, locate: true },
+            ];
 
-            try {
-                const result = await scanner.scanFile(file, true);
-                console.log('Barcode detected:', result);
-                setBarcode(result);
-                toast.success(`Barcode detected: ${result}`);
-            } finally {
-                // Always cleanup
+            let detectedCode: string | null = null;
+
+            for (const cfg of configs) {
+                if (detectedCode) break;
+
                 try {
-                    await scanner.clear();
+                    const result = await new Promise<string | null>((resolve) => {
+                        Quagga.decodeSingle({
+                            src: dataUrl,
+                            numOfWorkers: 0,
+                            inputStream: { size: cfg.size },
+                            locator: { patchSize: cfg.patchSize, halfSample: cfg.halfSample },
+                            decoder: {
+                                readers: ['ean_reader', 'ean_8_reader', 'upc_reader', 'upc_e_reader', 'code_128_reader'],
+                            },
+                            locate: cfg.locate,
+                        }, (scanResult) => {
+                            if (scanResult?.codeResult?.code) {
+                                resolve(scanResult.codeResult.code);
+                            } else {
+                                resolve(null);
+                            }
+                        });
+                    });
+
+                    if (result) {
+                        detectedCode = result;
+                    }
                 } catch {
-                    // Ignore cleanup errors
-                }
-                if (document.body.contains(tempDiv)) {
-                    document.body.removeChild(tempDiv);
+                    continue;
                 }
             }
+
+            if (detectedCode) {
+                console.log('Barcode detected:', detectedCode);
+                setBarcode(detectedCode);
+                toast.success(`Barcode detected: ${detectedCode}`);
+            } else {
+                throw new Error('No barcode found');
+            }
+
         } catch (err) {
-            console.error('Scan file error:', err);
-            toast.error('Could not detect barcode in image. Try a clearer photo or enter manually.');
+            console.error('File scan error:', err);
+            toast.error('No barcode found. Please enter manually.');
+        } finally {
+            setIsUploadScanning(false);
+            e.target.value = '';
         }
     };
 
@@ -142,7 +211,7 @@ export default function ProductLookup() {
                     Product Lookup
                 </h1>
                 <p className="text-slate-400">
-                    Scan or enter a barcode to find product information
+                    Scan or enter a barcode to find product information from OpenFoodFacts
                 </p>
             </div>
 
@@ -151,14 +220,14 @@ export default function ProductLookup() {
                 <CardHeader>
                     <CardTitle className="text-white">Enter Barcode</CardTitle>
                     <CardDescription className="text-slate-400">
-                        Type the barcode number or use the scanner
+                        Type the barcode number or scan it
                     </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                     {/* Manual Input */}
                     <div className="flex gap-2">
                         <Input
-                            placeholder="Enter barcode number (e.g., 8991002101128)"
+                            placeholder="e.g., 8991002101128"
                             value={barcode}
                             onChange={(e) => setBarcode(e.target.value)}
                             className="bg-slate-700/50 border-slate-600 text-white placeholder:text-slate-500 font-mono text-lg"
@@ -178,7 +247,7 @@ export default function ProductLookup() {
                         <Button
                             variant="outline"
                             onClick={() => isScanning ? stopScanner() : startScanner()}
-                            className="flex-1 border-slate-600 text-slate-300 hover:bg-slate-700 hover:text-white"
+                            className={`flex-1 border-slate-600 text-slate-300 hover:bg-slate-700 hover:text-white ${isScanning ? 'bg-red-500/20 border-red-500' : ''}`}
                         >
                             <Camera className="w-4 h-4 mr-2" />
                             {isScanning ? 'Stop Camera' : 'Use Camera'}
@@ -186,26 +255,39 @@ export default function ProductLookup() {
                         <Button
                             variant="outline"
                             className="flex-1 border-slate-600 text-slate-300 hover:bg-slate-700 hover:text-white"
+                            disabled={isUploadScanning}
                             onClick={() => document.getElementById('barcode-file')?.click()}
                         >
-                            <Barcode className="w-4 h-4 mr-2" />
-                            Upload Image
+                            {isUploadScanning ? (
+                                <>
+                                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                    Scanning...
+                                </>
+                            ) : (
+                                <>
+                                    <Upload className="w-4 h-4 mr-2" />
+                                    Upload Image
+                                </>
+                            )}
                         </Button>
                         <input
                             id="barcode-file"
                             type="file"
                             accept="image/*"
                             className="hidden"
-                            onChange={(e) => {
-                                const file = e.target.files?.[0];
-                                if (file) handleFileUpload(file);
-                            }}
+                            onChange={handleFileUpload}
                         />
                     </div>
 
                     {/* Camera Scanner Area */}
                     {isScanning && (
-                        <div id="barcode-reader" className="w-full rounded-lg overflow-hidden border border-slate-600" />
+                        <div className="space-y-2">
+                            <div
+                                id="barcode-reader"
+                                className="w-full min-h-[250px] rounded-lg overflow-hidden border border-green-500 bg-slate-900"
+                            />
+                            <p className="text-slate-400 text-sm text-center">Point camera at barcode</p>
+                        </div>
                     )}
                 </CardContent>
             </Card>
@@ -244,7 +326,7 @@ export default function ProductLookup() {
                         <div className="flex items-start gap-4">
                             {product.nutri_score && (
                                 <div className={`w-16 h-16 rounded-xl flex items-center justify-center text-3xl font-bold text-white ${nutriScoreColors[product.nutri_score]}`}>
-                                    {product.nutri_score}
+                                    {product.nutri_score == 'unknown' ? 'X' : product.nutri_score}
                                 </div>
                             )}
                             <div>

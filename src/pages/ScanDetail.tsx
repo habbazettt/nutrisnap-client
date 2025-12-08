@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ArrowLeft, Clock, AlertTriangle, CheckCircle, Info, XCircle, Barcode, Image } from 'lucide-react';
+import { ArrowLeft, Clock, AlertTriangle, CheckCircle, Info, XCircle, Barcode } from 'lucide-react';
 import { scanService } from '@/services';
 import type { Scan, InsightType } from '@/types';
 import { toast } from 'sonner';
@@ -41,7 +41,6 @@ export default function ScanDetail() {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
     const [scan, setScan] = useState<Scan | null>(null);
-    const [imageUrl, setImageUrl] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
@@ -50,19 +49,6 @@ export default function ScanDetail() {
             try {
                 const data = await scanService.getById(id);
                 setScan(data);
-
-                // Use image_url directly from response (backend returns presigned URL)
-                // If not available, try to get it from separate endpoint
-                if (data.image_url) {
-                    setImageUrl(data.image_url);
-                } else {
-                    try {
-                        const url = await scanService.getImage(id);
-                        setImageUrl(url);
-                    } catch {
-                        // Image not available
-                    }
-                }
             } catch {
                 toast.error('Failed to load scan');
                 navigate('/history');
@@ -99,30 +85,8 @@ export default function ScanDetail() {
             </Button>
 
             <div className="grid lg:grid-cols-3 gap-6">
-                {/* Left Column - Image & Meta */}
+                {/* Left Column - Meta */}
                 <div className="space-y-6">
-                    {/* Product Image */}
-                    <Card className="bg-slate-800/50 border-slate-700 overflow-hidden">
-                        <CardHeader className="pb-2">
-                            <CardTitle className="text-white flex items-center gap-2 text-base">
-                                <Image className="w-4 h-4" />
-                                Scanned Image
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            {imageUrl ? (
-                                <img
-                                    src={imageUrl}
-                                    alt="Scanned product"
-                                    className="w-full h-48 object-contain rounded-lg bg-slate-900 border border-slate-700"
-                                />
-                            ) : (
-                                <div className="w-full h-48 bg-slate-900 rounded-lg border border-slate-700 flex items-center justify-center">
-                                    <p className="text-slate-500 text-sm">No image available</p>
-                                </div>
-                            )}
-                        </CardContent>
-                    </Card>
 
                     {/* Barcode */}
                     {scan.barcode && (
