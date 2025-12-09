@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Input } from '@/components/ui/input';
-import { ArrowLeft, Clock, AlertTriangle, CheckCircle, Info, XCircle, Barcode, Pencil, X, Check, Loader2, Image } from 'lucide-react';
+import { ArrowLeft, Clock, AlertTriangle, CheckCircle, Info, XCircle, Barcode, Pencil, X, Check, Loader2, Image, ZoomIn } from 'lucide-react';
 import { scanService, correctionService } from '@/services';
 import type { Scan, InsightType } from '@/types';
 import type { Correction } from '@/services/correction';
@@ -61,6 +61,7 @@ export default function ScanDetail() {
     const [editingField, setEditingField] = useState<string | null>(null);
     const [editValue, setEditValue] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isImageModalOpen, setIsImageModalOpen] = useState(false);
 
     useEffect(() => {
         const fetchScan = async () => {
@@ -110,10 +111,10 @@ export default function ScanDetail() {
         }
     };
 
-    // Check if a field has a pending correction
+    // Check if a field has a correction (approved)
     const getFieldCorrection = (key: string): Correction | undefined => {
         const fieldName = nutrientToFieldName[key] || key;
-        return corrections.find(c => c.field_name === fieldName && c.status === 'pending');
+        return corrections.find(c => c.field_name === fieldName && c.status === 'approved');
     };
 
     if (isLoading) {
@@ -155,15 +156,24 @@ export default function ScanDetail() {
                                 </CardTitle>
                             </CardHeader>
                             <CardContent>
-                                <img
-                                    src={scan.image_url}
-                                    alt="Scanned product"
-                                    className="w-full h-48 object-contain rounded-lg bg-slate-900 border border-slate-700"
-                                    onError={(e) => {
-                                        const target = e.target as HTMLImageElement;
-                                        target.style.display = 'none';
-                                    }}
-                                />
+                                <div
+                                    className="relative group cursor-zoom-in"
+                                    onClick={() => setIsImageModalOpen(true)}
+                                >
+                                    <img
+                                        src={scan.image_url}
+                                        alt="Scanned product"
+                                        className="w-full h-48 object-contain rounded-lg bg-slate-900 border border-slate-700 transition-transform group-hover:scale-[1.02]"
+                                        onError={(e) => {
+                                            const target = e.target as HTMLImageElement;
+                                            target.style.display = 'none';
+                                        }}
+                                    />
+                                    <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg">
+                                        <ZoomIn className="w-8 h-8 text-white" />
+                                    </div>
+                                </div>
+                                <p className="text-slate-500 text-xs text-center mt-2">Click to enlarge</p>
                             </CardContent>
                         </Card>
                     )}
@@ -289,15 +299,15 @@ export default function ScanDetail() {
                                                                 {correction ? (
                                                                     <>
                                                                         <span className="line-through text-slate-500 mr-2">{value}</span>
-                                                                        <span className="text-yellow-400">{correction.corrected_value}</span>
+                                                                        <span className="text-green-400">{correction.corrected_value}</span>
                                                                     </>
                                                                 ) : (
                                                                     value
                                                                 )} {unit}
                                                             </span>
                                                             {correction && (
-                                                                <Badge className="text-xs bg-yellow-500/20 text-yellow-400 border-yellow-500/30">
-                                                                    pending
+                                                                <Badge className="text-xs bg-green-500/20 text-green-400 border-green-500/30">
+                                                                    edited
                                                                 </Badge>
                                                             )}
                                                             <Button
@@ -363,6 +373,29 @@ export default function ScanDetail() {
                     )}
                 </div>
             </div>
+
+            {/* Image Zoom Modal */}
+            {isImageModalOpen && scan.image_url && (
+                <div
+                    className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm animate-in fade-in duration-200"
+                    onClick={() => setIsImageModalOpen(false)}
+                >
+                    <div className="relative max-w-4xl max-h-[90vh] p-4">
+                        <button
+                            className="absolute top-2 right-2 z-10 p-2 rounded-full bg-slate-800/80 text-white hover:bg-slate-700 transition-colors"
+                            onClick={() => setIsImageModalOpen(false)}
+                        >
+                            <X className="w-6 h-6" />
+                        </button>
+                        <img
+                            src={scan.image_url}
+                            alt="Scanned product - enlarged"
+                            className="max-w-full max-h-[85vh] object-contain rounded-lg shadow-2xl animate-in zoom-in-95 duration-200"
+                            onClick={(e) => e.stopPropagation()}
+                        />
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
