@@ -128,3 +128,36 @@ export interface ApiResponse<T> {
     message?: string;
     error?: string;
 }
+
+// =============== ADMIN TYPES ===============
+
+export interface AdminStats {
+    total_users: number;
+    total_scans: number;
+    total_products: number;
+    active_users: number;
+}
+
+export interface AdminUserResponse {
+    id: string;
+    email: string;
+    name: string;
+    avatar_url?: string;
+    role: 'user' | 'admin';
+    email_verified_at?: string;
+    has_password?: boolean;
+    has_google_linked?: boolean;
+    created_at: string;
+}
+
+export interface PaginatedUsers {
+    users: AdminUserResponse[];
+    total: number;
+    page: number;
+    limit: number;
+    total_pages: number;
+}
+
+export interface UpdateUserRoleRequest {
+    role: 'user' | 'admin';
+}

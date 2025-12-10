@@ -14,6 +14,9 @@ import History from '@/pages/History';
 import Compare from '@/pages/Compare';
 import Profile from '@/pages/Profile';
 import ProductLookup from '@/pages/ProductLookup';
+import AdminDashboard from '@/pages/admin/AdminDashboard';
+import UserManagement from '@/pages/admin/UserManagement';
+import { AdminRoute } from '@/components/auth/AdminRoute';
 
 // Layout
 import Layout from '@/components/layout/Layout';
@@ -84,6 +87,16 @@ function AppRoutes() {
         <Route path="/compare" element={<Compare />} />
         <Route path="/product" element={<ProductLookup />} />
         <Route path="/profile" element={<Profile />} />
+        <Route path="/admin" element={
+          <AdminRoute>
+            <AdminDashboard />
+          </AdminRoute>
+        } />
+        <Route path="/admin/users" element={
+          <AdminRoute>
+            <UserManagement />
+          </AdminRoute>
+        } />
       </Route>
 
       {/* Fallback */}

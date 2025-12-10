@@ -9,7 +9,7 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Leaf, Camera, History, Scale, User, LogOut, LayoutDashboard, Barcode } from 'lucide-react';
+import { Leaf, Camera, History, Scale, User, LogOut, LayoutDashboard, Barcode, Shield } from 'lucide-react';
 
 export default function Layout() {
     const { user, logout } = useAuth();
@@ -48,6 +48,14 @@ export default function Layout() {
                                     Dashboard
                                 </Button>
                             </Link>
+                            {user?.role === 'admin' && (
+                                <Link to="/admin">
+                                    <Button variant="ghost" className="text-slate-300 hover:text-white hover:bg-slate-800">
+                                        <Shield className="w-4 h-4 mr-2" />
+                                        Admin
+                                    </Button>
+                                </Link>
+                            )}
                             <Link to="/scan">
                                 <Button variant="ghost" className="text-slate-300 hover:text-white hover:bg-slate-800">
                                     <Camera className="w-4 h-4 mr-2" />
@@ -97,6 +105,14 @@ export default function Layout() {
                                         Profile
                                     </Link>
                                 </DropdownMenuItem>
+                                {user?.role === 'admin' && (
+                                    <DropdownMenuItem asChild>
+                                        <Link to="/admin" className="cursor-pointer text-slate-300 focus:bg-slate-700 focus:text-white">
+                                            <Shield className="w-4 h-4 mr-2" />
+                                            Admin Panel
+                                        </Link>
+                                    </DropdownMenuItem>
+                                )}
                                 <DropdownMenuSeparator className="bg-slate-700" />
                                 <DropdownMenuItem onClick={handleLogout} className="cursor-pointer text-red-400 focus:bg-slate-700 focus:text-red-300">
                                     <LogOut className="w-4 h-4 mr-2" />

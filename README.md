@@ -1,73 +1,81 @@
-# React + TypeScript + Vite
+# 🥗 NutriSnap Client
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+The modern, responsive frontend for **NutriSnap** - an intelligent nutrition tracking application that uses AI to analyze food labels and provide actionable health insights.
 
-Currently, two official plugins are available:
+![NutriSnap Banner](https://images.unsplash.com/photo-1490645935967-10de6ba17061?q=80&w=2053&auto=format&fit=crop)
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## 🚀 Key Features
 
-## React Compiler
+- **📸 Smart Scanning**: Instantly analyze nutrition facts labels using OCR and AI.
+- **🔍 Product Insight**: Get detailed health scores (NutriScore), ingredient analysis, and potential allergen warnings.
+- **⚖️ Product Comparison**: Compare two products side-by-side to make healthier choices.
+- **🛡️ Admin Dashboard**: Comprehensive admin panel for user management and application statistics.
+- **📱 Responsive Design**: Built for a seamless experience on both desktop and mobile devices.
+- **🌗 Dark/Light Mode**: Beautiful UI adaptable to your preference.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## 🛠️ Tech Stack
 
-## Expanding the ESLint configuration
+- **Framework**: React 18 + TypeScript + Vite
+- **Styling**: Tailwind CSS + Shadcn UI
+- **State Management**: TanStack Query (React Query)
+- **Routing**: React Router DOM
+- **Form Handling**: React Hook Form + Zod
+- **Icons**: Lucide React
+- **Charts**: Recharts
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+## 📦 Installation
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+1. **Clone the repository**
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+    ```bash
+    git clone https://github.com/habbazettt/nutrisnap-client.git
+    cd nutrisnap-client
+    ```
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+2. **Install dependencies**
+
+    ```bash
+    npm install
+    ```
+
+3. **Environment Setup**
+    Create a `.env` file in the root directory:
+
+    ```env
+    VITE_API_URL=http://localhost:3000/api/v1
+    ```
+
+4. **Run Development Server**
+
+    ```bash
+    npm run dev
+    ```
+
+## 🏗️ Project Structure
+
+```text
+src/
+├── components/         # Reusable UI components
+│   ├── ui/             # Shadcn UI primitives
+│   ├── layout/         # Layout components (Sidebar, Navbar)
+│   └── ...
+├── pages/              # Main application pages
+│   ├── admin/          # Admin dashboard & management
+│   └── ...
+├── services/           # API integration
+├── hooks/              # Custom React hooks
+├── context/            # Global state (Auth, Theme)
+├── types/              # TypeScript definitions
+└── utils/              # Helper functions
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## 🔐 Admin Access
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+To access the admin dashboard:
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+1. Log in with an admin account.
+2. Navigate to `/admin` or click the "Admin" link in the navigation bar.
+
+## 📄 License
+
+MIT License - see [LICENSE](LICENSE)
